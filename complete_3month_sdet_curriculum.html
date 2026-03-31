@@ -1,0 +1,274 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.wrap{font-family:var(--font-sans);padding:1rem 0 2rem}
+.top-nav{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.nav-btn{font-size:12px;padding:5px 14px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;transition:all .15s}
+.nav-btn.active{background:var(--color-text-primary);color:var(--color-background-primary);border-color:var(--color-text-primary)}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.sc{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px}
+.sv{font-size:20px;font-weight:500;color:var(--color-text-primary)}
+.sl{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
+.pbar-wrap{height:5px;background:var(--color-background-secondary);border-radius:10px;margin-bottom:20px;overflow:hidden}
+.pbar-fill{height:100%;border-radius:10px;background:#1D9E75;transition:width .4s}
+.week-block{margin-bottom:12px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;background:var(--color-background-primary)}
+.week-block.hidden{display:none}
+.week-head{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;background:var(--color-background-primary);border-bottom:0.5px solid var(--color-border-tertiary)}
+.week-head:hover{background:var(--color-background-secondary)}
+.wnum{font-size:11px;font-weight:500;padding:2px 9px;border-radius:12px;white-space:nowrap}
+.wtitle{font-size:13px;font-weight:500;color:var(--color-text-primary);flex:1}
+.wdone{font-size:11px;color:var(--color-text-secondary)}
+.wcheck{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--color-border-secondary);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;transition:all .15s}
+.wcheck.on{background:#1D9E75;border-color:#1D9E75}
+.tick{display:none;width:10px;height:10px}
+.wcheck.on .tick{display:block}
+.week-body{padding:14px}
+.day-row{display:grid;grid-template-columns:70px 1fr;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.day-row:last-child{border-bottom:none}
+.day-label{font-size:11px;font-weight:500;color:var(--color-text-secondary);padding-top:2px}
+.day-content{}
+.topic-name{font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:3px}
+.topic-tasks{display:flex;flex-direction:column;gap:3px}
+.task-item{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:var(--color-text-secondary);line-height:1.5;cursor:pointer}
+.task-item:hover .task-dot{opacity:0.6}
+.task-dot{width:5px;height:5px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.task-item.tdone{text-decoration:line-through;opacity:0.45}
+.task-item.tdone .task-dot{background:#1D9E75!important}
+.resource-row{display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:0.5px solid var(--color-border-tertiary)}
+.res-label{font-size:11px;color:var(--color-text-tertiary)}
+.res-tag{font-size:11px;padding:2px 8px;border-radius:10px;border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary)}
+.action-strip{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.action-strip button{font-size:12px;padding:5px 12px}
+.m1c{background:#E1F5EE;color:#0F6E56}
+.m2c{background:#E6F1FB;color:#185FA5}
+.m3c{background:#FAEEDA;color:#854F0B}
+.m1d{background:#1D9E75}
+.m2d{background:#378ADD}
+.m3d{background:#BA7517}
+.m1b{border-left:3px solid #1D9E75!important;border-radius:0 var(--border-radius-lg) var(--border-radius-lg) 0!important}
+.m2b{border-left:3px solid #378ADD!important;border-radius:0 var(--border-radius-lg) var(--border-radius-lg) 0!important}
+.m3b{border-left:3px solid #BA7517!important;border-radius:0 var(--border-radius-lg) var(--border-radius-lg) 0!important}
+</style>
+
+<div class="wrap">
+<div class="top-nav">
+  <button class="nav-btn active" onclick="filterPhase('all',this)">All 12 weeks</button>
+  <button class="nav-btn" onclick="filterPhase('m1',this)">Month 1 — JS + Playwright</button>
+  <button class="nav-btn" onclick="filterPhase('m2',this)">Month 2 — SDET skills</button>
+  <button class="nav-btn" onclick="filterPhase('m3',this)">Month 3 — AI agent</button>
+</div>
+
+<div class="stats-row">
+  <div class="sc"><div class="sv" id="st-topics">0</div><div class="sl">Topics done</div></div>
+  <div class="sc"><div class="sv" id="st-weeks">0/12</div><div class="sl">Weeks complete</div></div>
+  <div class="sc"><div class="sv" id="st-pct">0%</div><div class="sl">Progress</div></div>
+  <div class="sc"><div class="sv" id="st-hrs">~90h</div><div class="sl">Total study hrs</div></div>
+</div>
+<div class="pbar-wrap"><div class="pbar-fill" id="pbar" style="width:0%"></div></div>
+
+<div id="weeks-container"></div>
+
+<div class="action-strip">
+  <button onclick="sendPrompt('Give me a code example for Playwright Page Object Model pattern')">POM code example ↗</button>
+  <button onclick="sendPrompt('Write a GitHub Actions workflow.yml to run Playwright tests')">CI/CD template ↗</button>
+  <button onclick="sendPrompt('Show me how to call the Claude API in JavaScript for test data generation')">Claude API snippet ↗</button>
+  <button onclick="sendPrompt('What are the top 20 SDET interview questions for Playwright?')">Interview Q&A ↗</button>
+</div>
+</div>
+
+<script>
+const plan = [
+  {id:'w1',phase:'m1',title:'JavaScript core syntax',hrs:8,resources:['freeCodeCamp JS','javascript.info'],
+   days:[
+    {day:'Day 1–2',topic:'Variables & data types',tasks:['var, let, const — differences and when to use each','Primitive types: string, number, boolean, null, undefined','Template literals: `Hello ${name}`','Practice: declare 10 variables of different types']},
+    {day:'Day 3–4',topic:'Functions & control flow',tasks:['Function declaration vs arrow functions','if/else, switch, ternary operator','for, while, for...of loops','Practice: write a function that loops an array and filters items']},
+    {day:'Day 5–6',topic:'Arrays & objects',tasks:['Array methods: map, filter, find, forEach, includes','Object creation, dot notation, destructuring','Spread operator: ...arr, ...obj','Practice: transform an array of user objects using map + filter']},
+    {day:'Day 7',topic:'Week review + mini project',tasks:['Build a small script: read a JSON list, filter, log results','Push code to a new GitHub repo — your portfolio starts here','Ask Claude to review your code and suggest improvements']}
+  ]},
+  {id:'w2',phase:'m1',title:'Async JS + Node.js setup',hrs:7,resources:['Node.js docs','javascript.info/async'],
+   days:[
+    {day:'Day 1–2',topic:'Promises & async/await',tasks:['What a Promise is — resolve, reject, .then, .catch','async function + await keyword — sequential async flow','try/catch for error handling in async code','Practice: fetch data from a public API (JSONPlaceholder) using fetch()']},
+    {day:'Day 3–4',topic:'Node.js & npm basics',tasks:['Install Node.js LTS — verify with node -v and npm -v','npm init to create package.json in a project','npm install to add packages, node_modules explained','Create and run your first .js file with node index.js']},
+    {day:'Day 5–6',topic:'Modules & file structure',tasks:['import/export vs require/module.exports','Organise files: src/, tests/, utils/ structure','Read/write a JSON file using fs module','Practice: build a small helper module and import it']},
+    {day:'Day 7',topic:'TypeScript intro',tasks:['Install TypeScript: npm install -D typescript ts-node','Type annotations: string, number, boolean, any','Interfaces for objects: interface User { name: string }','Configure tsconfig.json basics — strict mode on']}
+  ]},
+  {id:'w3',phase:'m1',title:'Playwright setup & first tests',hrs:8,resources:['playwright.dev docs','saucedemo.com (practice site)'],
+   days:[
+    {day:'Day 1',topic:'Install & configure Playwright',tasks:['npm init playwright@latest — choose TypeScript','Understand generated folder: tests/, playwright.config.ts','Run npx playwright test — see the demo test pass','Open npx playwright show-report to see HTML report']},
+    {day:'Day 2–3',topic:'Playwright codegen',tasks:['Run npx playwright codegen saucedemo.com','Record login flow — study the generated test code','Understand: page.goto(), page.fill(), page.click(), expect()','Edit the generated test to add an assertion']},
+    {day:'Day 4–5',topic:'Test anatomy deep dive',tasks:['test() block structure — test name, async function, page arg','expect() matchers: toBeVisible, toHaveText, toHaveURL','beforeEach hook for shared setup like login','Multiple assertions in one test — when to split tests']},
+    {day:'Day 6–7',topic:'Write 5 manual tests as code',tasks:['Test 1: Login with valid credentials','Test 2: Login with invalid credentials — assert error message','Test 3: Add item to cart — assert cart count','Test 4: Checkout flow — fill form and complete order','Test 5: Logout — assert redirect to login page']}
+  ]},
+  {id:'w4',phase:'m1',title:'Locators, assertions & debugging',hrs:7,resources:['playwright.dev/locators','Playwright VS Code extension'],
+   days:[
+    {day:'Day 1–2',topic:'Locator strategies',tasks:['getByRole() — the preferred, accessible approach','getByText(), getByLabel(), getByPlaceholder()','getByTestId() — for data-testid attributes','Avoid CSS/XPath unless absolutely necessary — understand why']},
+    {day:'Day 3',topic:'Chaining & filtering locators',tasks:['locator.filter({ hasText }) to narrow down elements','locator.nth(0) for indexed elements','locator.first() and locator.last()','page.locator("table").getByRole("row") — nesting locators']},
+    {day:'Day 4',topic:'Assertions deep dive',tasks:['Soft assertions: expect.soft() — run all, fail after','toBeEnabled, toBeDisabled, toBeChecked, toBeEmpty','toContainText vs toHaveText — exact vs partial match','Numeric: toHaveCount(), array assertions']},
+    {day:'Day 5–6',topic:'Debugging tools',tasks:['npx playwright test --debug — step through with Inspector','PWDEBUG=1 to pause on failure','page.screenshot() and page.video on failure','Console logs inside tests: console.log() still works']},
+    {day:'Day 7',topic:'Refactor + cleanup',tasks:['Refactor your 5 tests using correct locators','Add proper assertions to each test','Run all 5 tests together: npx playwright test','Fix any flaky tests — understand auto-wait behaviour']}
+  ]},
+  {id:'w5',phase:'m2',title:'Page Object Model (POM)',hrs:8,resources:['Playwright POM docs','Martin Fowler – PageObject pattern'],
+   days:[
+    {day:'Day 1–2',topic:'What is POM and why',tasks:['Problem: test logic mixed with UI selectors — brittle','POM: separate class per page — locators + actions inside','Single responsibility: page class owns the UI, test owns the flow','Create LoginPage class with locators as properties']},
+    {day:'Day 3–4',topic:'Build LoginPage & InventoryPage',tasks:['class LoginPage { constructor(page) { this.page = page } }','Add methods: async login(user, pass), async getErrorMessage()','Create InventoryPage: addToCart(itemName), getCartCount()','Export classes and import in tests']},
+    {day:'Day 5',topic:'CheckoutPage & CartPage',tasks:['Build CartPage: getItems(), removeItem(name), proceedToCheckout()','Build CheckoutPage: fillForm(firstName, lastName, zip), completeOrder()','Chain pages in tests: login → inventory → cart → checkout','Verify full E2E flow using only page methods — no raw locators in tests']},
+    {day:'Day 6–7',topic:'Fixtures for shared pages',tasks:['Playwright fixture: extend test with { loginPage, inventoryPage }','Auto-login fixture: log in before every test automatically','Understand fixture scope: test vs worker vs project','Refactor all 5 tests to use fixtures + POM — clean test files']}
+  ]},
+  {id:'w6',phase:'m2',title:'API testing with Playwright',hrs:7,resources:['playwright.dev/api-testing','reqres.in (mock API)','JSONPlaceholder'],
+   days:[
+    {day:'Day 1–2',topic:'API request context basics',tasks:['const request = await request.newContext()','GET request: await request.get(url) — check response.status()','POST request with JSON body: await request.post(url, { data:{} })','Parse JSON response: await response.json()']},
+    {day:'Day 3',topic:'Assert API responses',tasks:['expect(response.status()).toBe(200)','Validate response body fields: expect(body.id).toBeDefined()','Schema validation basics — check required fields exist','Negative tests: 401, 404, 400 — test bad inputs']},
+    {day:'Day 4–5',topic:'Combine API + UI tests',tasks:['Create a user via API, then verify in UI — no manual setup','Delete data via API in afterEach — clean test state','Use API to seed test data: POST 5 records, then test list view','This pattern = fast, reliable, not dependent on UI for setup']},
+    {day:'Day 6',topic:'Network interception',tasks:['page.route() to intercept and mock API responses','Return fake data: route.fulfill({ json: mockData })','Test error states: mock a 500 response — see how UI handles it','Mock slow responses: use route + delay to test loading states']},
+    {day:'Day 7',topic:'API test suite',tasks:['Write 5 pure API tests against a public API','Write 3 hybrid tests (API setup + UI verify)','Organise into tests/api/ folder','Run separately: npx playwright test tests/api/']}
+  ]},
+  {id:'w7',phase:'m2',title:'CI/CD with GitHub Actions',hrs:6,resources:['GitHub Actions docs','Playwright CI guide'],
+   days:[
+    {day:'Day 1–2',topic:'Git & GitHub workflow',tasks:['git init, git add, git commit -m, git push — review basics','Create a GitHub repo and push your Playwright project','Branching: git checkout -b feature/new-test','Pull request flow — even if working solo, practice this']},
+    {day:'Day 3–4',topic:'GitHub Actions workflow',tasks:['Create .github/workflows/playwright.yml','on: push to trigger tests on every commit','jobs: test with runs-on: ubuntu-latest','Steps: checkout → setup-node → npm ci → npx playwright install → npx playwright test']},
+    {day:'Day 5',topic:'Artifacts & reports in CI',tasks:['Upload HTML report as artifact on failure: uses: actions/upload-artifact','Upload screenshots and videos on test failure','Set timeout for the whole job: timeout-minutes: 30','View test results directly in GitHub Actions tab']},
+    {day:'Day 6',topic:'Environment & secrets',tasks:['GitHub Secrets for credentials: Settings → Secrets → Actions','Access in workflow: env: USERNAME: ${{ secrets.TEST_USER }}','Use .env locally with dotenv package — never commit credentials','Matrix strategy: run tests on chromium + firefox in parallel']},
+    {day:'Day 7',topic:'Pipeline polish',tasks:['Add status badge to README: shows pass/fail on GitHub page','Run only @smoke tagged tests on every push — full suite nightly','Fix any failing tests in CI environment (headless differences)','Share your working CI pipeline — this is a portfolio milestone']}
+  ]},
+  {id:'w8',phase:'m2',title:'Fixtures, tags, reports & framework polish',hrs:7,resources:['Playwright test configuration docs','Allure Playwright'],
+   days:[
+    {day:'Day 1–2',topic:'Advanced fixtures',tasks:['Worker-scoped fixtures: shared across tests in a worker','Fixture dependency chain: loginPage depends on page','Override built-in fixtures: customise browser launch options','Auto fixture: runs without being declared in test args']},
+    {day:'Day 3',topic:'Test tags & grouping',tasks:['@smoke, @regression, @critical tags in test names','Run by tag: npx playwright test --grep @smoke','Skip tests: test.skip(), test.fixme() with reason','test.describe.only() for focused local runs']},
+    {day:'Day 4',topic:'Data-driven testing',tasks:['Parameterise tests with test.each() or a loop','Load test data from a JSON file: import users from ./data/users.json','Table-driven: test multiple form inputs from one data array','Generate data dynamically with a helper function']},
+    {day:'Day 5',topic:'Custom HTML reports',tasks:['playwright-html reporter — customise in playwright.config.ts','Add test annotations: test.info().annotations.push()','Allure reporter setup: npm install allure-playwright','Generate + open Allure: allure generate, allure open']},
+    {day:'Day 6–7',topic:'Framework review & README',tasks:['Final folder structure: tests/, pages/, fixtures/, data/, utils/','Write a clear README: setup instructions, how to run, tag guide','Add a test count badge — shows professionalism','Record a 2-min Loom demo of your framework running in CI']}
+  ]},
+  {id:'w9',phase:'m3',title:'AI-assisted test writing with Claude',hrs:6,resources:['Claude.ai','VS Code + Copilot (free tier)','anthropic.com/docs'],
+   days:[
+    {day:'Day 1–2',topic:'Prompting Claude for test code',tasks:['Prompt: "Write a Playwright Page Object for saucedemo.com login page"','Prompt: "Generate 10 test cases for a checkout form"','Learn to review AI output — spot bad locators, missing assertions','Iterate: "The locator for the submit button is wrong, fix it"']},
+    {day:'Day 3',topic:'Generate POM from a URL',tasks:['Paste page HTML or describe a page to Claude','Prompt: "Create a TypeScript POM class for this page structure"','Ask Claude to add JSDoc comments and TypeScript types','Compare AI-generated POM vs your manual one — merge the best parts']},
+    {day:'Day 4',topic:'AI for test case design',tasks:['Prompt: "What are all edge cases to test for a login form?"','Generate negative test scenarios from feature descriptions','Ask Claude: "Convert this manual test case into Playwright code"','Use AI to find gaps in your existing test coverage']},
+    {day:'Day 5',topic:'AI-assisted debugging',tasks:['Paste a failing test + error to Claude — ask for root cause','Prompt: "Why is this Playwright locator flaky? Here is my code..."','Ask for refactoring: "Make this test more maintainable"','Use Claude to explain Playwright error messages you don\'t understand']},
+    {day:'Day 6–7',topic:'VS Code Copilot integration',tasks:['Enable GitHub Copilot in VS Code (free for students or trial)','Inline suggestions while writing tests — Tab to accept','Copilot Chat: Ctrl+I to explain or fix selected code','Compare Copilot vs Claude for test generation — know when to use each']}
+  ]},
+  {id:'w10',phase:'m3',title:'Claude API for dynamic test data',hrs:7,resources:['Anthropic API docs','anthropic npm package'],
+   days:[
+    {day:'Day 1–2',topic:'Anthropic SDK setup',tasks:['npm install @anthropic-ai/sdk','Get API key from console.anthropic.com','Create utils/aiHelper.ts with basic message call','Test: ask Claude to return "hello" — verify SDK works']},
+    {day:'Day 3',topic:'Generate test data with AI',tasks:['Prompt Claude to return JSON: "Return 5 fake user objects with name, email, age"','Parse response and use as Playwright test data','Generate invalid data for negative tests: "Give me 5 invalid email formats"','Store generated data as fixtures for reuse']},
+    {day:'Day 4',topic:'AI test data helper module',tasks:['Build generateUsers(count) function that calls Claude API','Build generateFormData(type) — returns valid/invalid based on type param','Add retry logic if API call fails: try/catch with fallback static data','Cache results to avoid repeated API calls in the same run']},
+    {day:'Day 5',topic:'AI log analyser',tasks:['After test run, read the JSON results file','Send failures to Claude: "Summarise these test failures in plain English"','Output a summary report — email-ready test run digest','This is a real SDET productivity tool — demo-worthy']},
+    {day:'Day 6–7',topic:'Integrate into your framework',tasks:['Add AI data generator as a fixture: aiDataFixture','Use in 3 tests: one happy path, two negative','Run the full suite with AI-generated data','Write a README section explaining the AI data generation feature']}
+  ]},
+  {id:'w11',phase:'m3',title:'Playwright MCP + AI agent basics',hrs:7,resources:['@playwright/mcp npm','Claude Desktop app','MCP protocol docs'],
+   days:[
+    {day:'Day 1–2',topic:'What is MCP and why it matters',tasks:['MCP = Model Context Protocol — lets AI agents use tools','Playwright MCP exposes browser as a tool Claude can call','Install: npm install @playwright/mcp','Understand: AI agent = LLM + tool calling + loop (plan→act→observe)']},
+    {day:'Day 3',topic:'Set up Claude Desktop + Playwright MCP',tasks:['Install Claude Desktop app','Edit claude_desktop_config.json to add Playwright MCP server','Verify: open Claude Desktop — MCP tools should appear','Test: type "go to saucedemo.com" — Claude controls the browser']},
+    {day:'Day 4',topic:'First AI-driven test scenario',tasks:['Prompt Claude: "Navigate to saucedemo.com, log in as standard_user, add an item to cart and verify the cart count"','Watch Claude execute step by step — observe tool calls','Claude takes screenshots automatically — review them','Identify what it got right vs wrong — this builds agent intuition']},
+    {day:'Day 5',topic:'Agent prompt engineering for testing',tasks:['Structured prompt: "Act as a QA engineer. Test the login feature. Try valid credentials, invalid password, empty fields. Report what you find."','Ask Claude to generate a bug report from what it observed','Prompt: "Explore the checkout flow and list any UI issues"','Learn: AI agents work better with clear goals, not step-by-step instructions']},
+    {day:'Day 6–7',topic:'Plan→Act→Reflect agent loop',tasks:['Build a simple JS script that calls Claude API with a test goal','Claude responds with actions, you execute via Playwright, feed back result','This is the foundation of autonomous testing agents','Document your agent experiment — it will impress interviewers']}
+  ]},
+  {id:'w12',phase:'m3',title:'Portfolio project + job prep',hrs:8,resources:['LinkedIn','GitHub portfolio guide'],
+   days:[
+    {day:'Day 1–2',topic:'Polish the full framework',tasks:['Final structure: POM + fixtures + API tests + CI + AI data gen + MCP demo','Ensure all tests pass in CI on GitHub Actions','Add proper error messages to every assertion','TypeScript strict mode — fix any type errors']},
+    {day:'Day 3',topic:'README & documentation',tasks:['Project overview: what it tests, tech stack, architecture diagram','Setup guide: prerequisites, npm install, env setup, how to run','Test strategy: what each folder contains, how to add new tests','Add a demo GIF or Loom video link — shows it actually works']},
+    {day:'Day 4',topic:'LinkedIn & GitHub presence',tasks:['Pin your Playwright repo on GitHub profile','Write a LinkedIn post: "I built an AI-powered test framework using Playwright + Claude API in 3 months from manual testing"','Update your LinkedIn headline: QA Engineer | Automation | Playwright | AI Testing','Connect with SDET professionals — comment on their posts first']},
+    {day:'Day 5–6',topic:'Interview prep — technical',tasks:['Why Playwright over Selenium? (auto-wait, no WebDriver, multi-browser)','Explain POM pattern with a code example','How do you handle flaky tests? (retry, soft assert, wait strategy)','What is a fixture in Playwright? How is it different from beforeEach?','Describe how you integrated AI into your testing workflow']},
+    {day:'Day 7',topic:'Interview prep — take-home tasks',tasks:['Practice task: given a URL, build a POM + 5 tests in 2 hours','Practice explaining your code line by line — interviewers watch this','Prepare a 5-min demo of your framework running','Know your numbers: X tests, Y% coverage, Z mins CI runtime']}
+  ]}
+];
+
+const taskState = {};
+const weekDone = {};
+
+function buildUI() {
+  const container = document.getElementById('weeks-container');
+  plan.forEach(week => {
+    const div = document.createElement('div');
+    div.className = `week-block ${week.phase}b`;
+    div.id = week.id;
+    const phaseClass = week.phase === 'm1' ? 'm1c' : week.phase === 'm2' ? 'm2c' : 'm3c';
+    const phaseLabel = week.phase === 'm1' ? 'Month 1' : week.phase === 'm2' ? 'Month 2' : 'Month 3';
+    const dotClass = week.phase === 'm1' ? 'm1d' : week.phase === 'm2' ? 'm2d' : 'm3d';
+    const weekIdx = plan.indexOf(week);
+    div.innerHTML = `
+      <div class="week-head" onclick="toggleWeek('${week.id}')">
+        <span class="wnum ${phaseClass}">${phaseLabel} · Wk ${weekIdx+1}</span>
+        <span class="wtitle">${week.title}</span>
+        <span class="wdone" id="done-${week.id}">~${week.hrs}h</span>
+        <div class="wcheck" id="wc-${week.id}" onclick="event.stopPropagation();markWeek('${week.id}')">
+          <svg class="tick" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </div>
+      <div class="week-body" id="body-${week.id}" style="display:none">
+        ${week.days.map((d,di) => `
+          <div class="day-row">
+            <div class="day-label">${d.day}</div>
+            <div class="day-content">
+              <div class="topic-name">${d.topic}</div>
+              <div class="topic-tasks">
+                ${d.tasks.map((t,ti) => {
+                  const tid = `${week.id}-${di}-${ti}`;
+                  return `<div class="task-item" id="ti-${tid}" onclick="toggleTask('${tid}','${dotClass}')">
+                    <div class="task-dot" id="td-${tid}" style="background:#B4B2A9"></div>
+                    <span>${t}</span>
+                  </div>`;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+        `).join('')}
+        <div class="resource-row">
+          <span class="res-label">Resources:</span>
+          ${week.resources.map(r => `<span class="res-tag">${r}</span>`).join('')}
+        </div>
+      </div>`;
+    container.appendChild(div);
+  });
+  updateStats();
+}
+
+function toggleWeek(id) {
+  const body = document.getElementById('body-'+id);
+  body.style.display = body.style.display === 'none' ? 'block' : 'none';
+}
+
+function markWeek(id) {
+  const wc = document.getElementById('wc-'+id);
+  const on = wc.classList.toggle('on');
+  weekDone[id] = on;
+  updateStats();
+}
+
+function toggleTask(tid, dotColor) {
+  const el = document.getElementById('ti-'+tid);
+  const dot = document.getElementById('td-'+tid);
+  const on = el.classList.toggle('tdone');
+  taskState[tid] = on;
+  dot.style.background = on ? '#1D9E75' : '#B4B2A9';
+  updateStats();
+}
+
+function updateStats() {
+  let totalTasks = 0, doneTasks = 0, doneWeeks = 0;
+  plan.forEach(w => {
+    if(weekDone[w.id]) doneWeeks++;
+    w.days.forEach((d,di) => {
+      d.tasks.forEach((t,ti) => {
+        totalTasks++;
+        if(taskState[`${w.id}-${di}-${ti}`]) doneTasks++;
+      });
+    });
+  });
+  document.getElementById('st-topics').textContent = doneTasks;
+  document.getElementById('st-weeks').textContent = doneWeeks+'/12';
+  const pct = Math.round((doneTasks/totalTasks)*100);
+  document.getElementById('st-pct').textContent = pct+'%';
+  document.getElementById('pbar').style.width = pct+'%';
+}
+
+function filterPhase(phase, btn) {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  plan.forEach(w => {
+    const el = document.getElementById(w.id);
+    el.classList.toggle('hidden', phase !== 'all' && w.phase !== phase);
+  });
+}
+
+buildUI();
+</script>
