@@ -1,0 +1,1786 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SDET Task Manager</title>
+
+  <!--
+╔══════════════════════════════════════════════════════════════════╗
+║              GOOGLE DRIVE SETUP — READ THIS FIRST               ║
+╠══════════════════════════════════════════════════════════════════╣
+║  1. Go to https://console.cloud.google.com/                      ║
+║  2. Create a new project (or use existing)                       ║
+║  3. Enable "Google Drive API" in APIs & Services → Library       ║
+║  4. Go to APIs & Services → Credentials                          ║
+║  5. Create Credentials → OAuth 2.0 Client ID                     ║
+║  6. Application type: Web application                            ║
+║  7. Authorized JS origins: add the URL you host/open this from   ║
+║     • If opening as a local file: http://localhost               ║
+║     • If hosting on GitHub Pages: https://yourname.github.io     ║
+║  8. Copy the Client ID and paste it below (line ~25)             ║
+║  9. OAuth consent screen → External → add your Gmail as tester   ║
+╚══════════════════════════════════════════════════════════════════╝
+-->
+
+  <script>
+    const GOOGLE_CLIENT_ID = '263291166261-fp17f428miunc4e05qssn6c8orbin8n1.apps.googleusercontent.com'; // ← paste here
+    const DRIVE_FILE_NAME = 'sdet-progress.json';
+    const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap');
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    :root {
+      --bg: #0e0e10;
+      --surface: #17171a;
+      --surface2: #1e1e22;
+      --surface3: #242428;
+      --border: rgba(255, 255, 255, 0.07);
+      --border2: rgba(255, 255, 255, 0.12);
+      --text: #e8e8ea;
+      --text2: #9898a6;
+      --text3: #5a5a6a;
+      --accent: #5b6ef5;
+      --accent2: #7c8bff;
+      --green: #22c55e;
+      --m1: #5b6ef5;
+      --m2: #14b8a6;
+      --m3: #f59e0b;
+      --font: 'DM Sans', sans-serif;
+      --mono: 'DM Mono', monospace;
+      --r: 10px;
+      --r2: 14px;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.5
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 100vh
+    }
+
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 20px 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto
+    }
+
+    .logo {
+      padding: 0 20px 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px
+    }
+
+    .logo-mark {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-bottom: 4px
+    }
+
+    .logo-title {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -.3px
+    }
+
+    .sync-panel {
+      margin: 0 12px 16px;
+      border-radius: var(--r);
+      border: 1px solid var(--border);
+      overflow: hidden
+    }
+
+    .sync-btn {
+      width: 100%;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      background: var(--surface2);
+      border: none;
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text2);
+      transition: all .15s;
+      text-align: left
+    }
+
+    .sync-btn:hover {
+      background: var(--surface3);
+      color: var(--text)
+    }
+
+    .sync-btn.connected {
+      color: var(--green)
+    }
+
+    .sync-btn.syncing {
+      color: var(--accent)
+    }
+
+    .sync-icon {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: var(--surface3);
+      display: flex;
+      align-items: center;
+      justify-content: center
+    }
+
+    .sync-info {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0
+    }
+
+    .sync-sub {
+      font-size: 10px;
+      color: var(--text3);
+      font-weight: 400;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    .sync-actions {
+      display: flex;
+      border-top: 1px solid var(--border)
+    }
+
+    .sync-action-btn {
+      flex: 1;
+      padding: 7px;
+      background: transparent;
+      border: none;
+      border-right: 1px solid var(--border);
+      color: var(--text3);
+      font-size: 11px;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: all .15s
+    }
+
+    .sync-action-btn:last-child {
+      border-right: none
+    }
+
+    .sync-action-btn:hover {
+      background: var(--surface2);
+      color: var(--text2)
+    }
+
+    .sidebar-stats {
+      margin: 0 12px 16px;
+      background: var(--surface2);
+      border-radius: var(--r);
+      border: 1px solid var(--border);
+      padding: 14px
+    }
+
+    .ss-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px
+    }
+
+    .ss-item {
+      text-align: center
+    }
+
+    .ss-val {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text);
+      font-family: var(--mono)
+    }
+
+    .ss-lbl {
+      font-size: 10px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-top: 1px
+    }
+
+    .mini-bar {
+      height: 4px;
+      background: var(--surface3);
+      border-radius: 10px;
+      overflow: hidden
+    }
+
+    .mini-fill {
+      height: 100%;
+      border-radius: 10px;
+      background: linear-gradient(90deg, var(--m1), var(--m2));
+      transition: width .4s
+    }
+
+    .streak-row {
+      margin: 0 12px 16px;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, rgba(91, 110, 245, .12), rgba(20, 184, 166, .08));
+      border: 1px solid rgba(91, 110, 245, .2);
+      border-radius: var(--r)
+    }
+
+    .streak-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px
+    }
+
+    .streak-num {
+      font-size: 22px;
+      font-weight: 600;
+      font-family: var(--mono);
+      color: var(--accent2)
+    }
+
+    .streak-lbl {
+      font-size: 11px;
+      color: var(--text3)
+    }
+
+    .streak-dots {
+      display: flex;
+      gap: 4px
+    }
+
+    .s-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--surface3);
+      transition: background .2s
+    }
+
+    .s-dot.lit {
+      background: var(--accent)
+    }
+
+    .nav-section {
+      padding: 0 12px;
+      margin-bottom: 24px
+    }
+
+    .nav-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text3);
+      padding: 0 8px;
+      margin-bottom: 6px
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      color: var(--text2);
+      font-size: 13.5px;
+      transition: all .15s;
+      border: 1px solid transparent;
+      margin-bottom: 2px
+    }
+
+    .nav-item:hover {
+      background: var(--surface2);
+      color: var(--text)
+    }
+
+    .nav-item.active {
+      background: var(--surface3);
+      color: var(--text);
+      border-color: var(--border2)
+    }
+
+    .nav-item .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0
+    }
+
+    .nav-item .badge {
+      margin-left: auto;
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--text3);
+      background: var(--surface3);
+      padding: 1px 7px;
+      border-radius: 20px
+    }
+
+    .nav-item.active .badge {
+      background: var(--surface)
+    }
+
+    .main {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh
+    }
+
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 28px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 10
+    }
+
+    .header-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -.2px;
+      flex: 1
+    }
+
+    .header-sub {
+      font-size: 12px;
+      color: var(--text3);
+      font-weight: 400
+    }
+
+    .search-wrap {
+      position: relative;
+      flex: 0 0 220px
+    }
+
+    .search-wrap svg {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      opacity: .35;
+      pointer-events: none
+    }
+
+    #search {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 10px 7px 32px;
+      font-size: 13px;
+      color: var(--text);
+      font-family: var(--font);
+      width: 100%;
+      outline: none;
+      transition: border-color .15s
+    }
+
+    #search:focus {
+      border-color: var(--accent)
+    }
+
+    #search::placeholder {
+      color: var(--text3)
+    }
+
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: var(--font);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all .15s;
+      white-space: nowrap
+    }
+
+    .btn:hover {
+      background: var(--accent2);
+      transform: translateY(-1px)
+    }
+
+    .btn-ghost {
+      background: var(--surface2);
+      color: var(--text2);
+      border: 1px solid var(--border)
+    }
+
+    .btn-ghost:hover {
+      background: var(--surface3);
+      color: var(--text);
+      transform: none
+    }
+
+    .content {
+      flex: 1;
+      padding: 24px 28px
+    }
+
+    .overview-cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 24px
+    }
+
+    .ov-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r2);
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color .15s
+    }
+
+    .ov-card:hover {
+      border-color: var(--border2)
+    }
+
+    .ov-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--accent-c, var(--accent))
+    }
+
+    .ov-num {
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--text);
+      font-family: var(--mono)
+    }
+
+    .ov-label {
+      font-size: 11px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-top: 3px
+    }
+
+    .ov-sub {
+      font-size: 12px;
+      color: var(--text2);
+      margin-top: 4px
+    }
+
+    .filters {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap
+    }
+
+    .filter-btn {
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text2);
+      cursor: pointer;
+      font-family: var(--font);
+      transition: all .15s
+    }
+
+    .filter-btn:hover {
+      background: var(--surface2);
+      color: var(--text)
+    }
+
+    .filter-btn.active {
+      background: var(--surface3);
+      color: var(--text);
+      border-color: var(--border2)
+    }
+
+    .filter-sep {
+      width: 1px;
+      height: 18px;
+      background: var(--border);
+      margin: 0 4px
+    }
+
+    .weeks-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px
+    }
+
+    .week-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r2);
+      overflow: hidden;
+      transition: border-color .2s
+    }
+
+    .week-card:hover,
+    .week-card.expanded {
+      border-color: var(--border2)
+    }
+
+    .week-header {
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      cursor: pointer;
+      user-select: none
+    }
+
+    .week-phase-badge {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 20px;
+      white-space: nowrap
+    }
+
+    .ph-m1 {
+      background: rgba(91, 110, 245, .15);
+      color: #8b9bff
+    }
+
+    .ph-m2 {
+      background: rgba(20, 184, 166, .15);
+      color: #5eead4
+    }
+
+    .ph-m3 {
+      background: rgba(245, 158, 11, .15);
+      color: #fbbf24
+    }
+
+    .week-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text)
+    }
+
+    .week-meta {
+      font-size: 11px;
+      color: var(--text3);
+      margin-top: 2px
+    }
+
+    .week-progress {
+      display: flex;
+      align-items: center;
+      gap: 10px
+    }
+
+    .week-pct {
+      font-size: 12px;
+      font-family: var(--mono);
+      color: var(--text2);
+      min-width: 32px;
+      text-align: right
+    }
+
+    .week-prog-bar {
+      width: 80px;
+      height: 3px;
+      background: var(--surface3);
+      border-radius: 10px;
+      overflow: hidden
+    }
+
+    .week-prog-fill {
+      height: 100%;
+      border-radius: 10px;
+      transition: width .3s
+    }
+
+    .m1-fill {
+      background: var(--m1)
+    }
+
+    .m2-fill {
+      background: var(--m2)
+    }
+
+    .m3-fill {
+      background: var(--m3)
+    }
+
+    .week-check {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all .2s
+    }
+
+    .week-check:hover {
+      border-color: var(--green)
+    }
+
+    .week-check.done {
+      background: var(--green);
+      border-color: var(--green)
+    }
+
+    .week-check svg {
+      display: none
+    }
+
+    .week-check.done svg {
+      display: block
+    }
+
+    .week-body {
+      border-top: 1px solid var(--border);
+      display: none
+    }
+
+    .week-body.open {
+      display: block
+    }
+
+    .day-section {
+      border-bottom: 1px solid var(--border)
+    }
+
+    .day-section:last-child {
+      border-bottom: none
+    }
+
+    .day-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 18px;
+      background: rgba(255, 255, 255, .02)
+    }
+
+    .day-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text3);
+      min-width: 60px;
+      font-family: var(--mono)
+    }
+
+    .day-topic {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text2)
+    }
+
+    .day-count {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--text3);
+      font-family: var(--mono)
+    }
+
+    .task-list {
+      padding: 4px 18px 10px
+    }
+
+    .task-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, .04);
+      cursor: pointer;
+      transition: opacity .15s
+    }
+
+    .task-item:last-child {
+      border-bottom: none
+    }
+
+    .task-item:hover {
+      opacity: .85
+    }
+
+    .task-cb {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1.5px solid var(--border2);
+      flex-shrink: 0;
+      margin-top: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .15s;
+      cursor: pointer
+    }
+
+    .task-item:hover .task-cb {
+      border-color: var(--accent)
+    }
+
+    .task-cb.done {
+      background: var(--accent);
+      border-color: var(--accent)
+    }
+
+    .task-cb svg {
+      display: none
+    }
+
+    .task-cb.done svg {
+      display: block
+    }
+
+    .task-text {
+      font-size: 13px;
+      color: var(--text2);
+      flex: 1;
+      line-height: 1.5
+    }
+
+    .task-item.done .task-text {
+      color: var(--text3);
+      text-decoration: line-through
+    }
+
+    .task-note-btn {
+      width: 22px;
+      height: 22px;
+      border-radius: 5px;
+      background: transparent;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      flex-shrink: 0;
+      transition: all .15s;
+      color: var(--text3)
+    }
+
+    .task-item:hover .task-note-btn {
+      opacity: 1
+    }
+
+    .task-note-btn:hover {
+      background: var(--surface2);
+      color: var(--text2)
+    }
+
+    .task-note-btn.has-note {
+      opacity: 1;
+      color: var(--accent);
+      border-color: rgba(91, 110, 245, .3)
+    }
+
+    .note-panel {
+      background: rgba(91, 110, 245, .06);
+      border: 1px solid rgba(91, 110, 245, .2);
+      border-radius: 8px;
+      margin: 0 18px 8px;
+      padding: 10px 12px;
+      display: none
+    }
+
+    .note-panel.open {
+      display: block
+    }
+
+    .note-panel textarea {
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: 12.5px;
+      font-family: var(--font);
+      resize: none;
+      min-height: 60px;
+      line-height: 1.6
+    }
+
+    .note-panel textarea::placeholder {
+      color: var(--text3)
+    }
+
+    .note-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-top: 6px
+    }
+
+    .note-save,
+    .note-close {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text2);
+      cursor: pointer;
+      font-family: var(--font);
+      transition: all .15s
+    }
+
+    .note-save {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent)
+    }
+
+    .note-save:hover {
+      background: var(--accent2)
+    }
+
+    .note-close:hover {
+      background: var(--surface3);
+      color: var(--text)
+    }
+
+    .resources-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 18px;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap
+    }
+
+    .res-label {
+      font-size: 11px;
+      color: var(--text3)
+    }
+
+    .res-tag {
+      font-size: 11px;
+      padding: 3px 9px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      color: var(--text2);
+      background: var(--surface2)
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .6);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100
+    }
+
+    .modal-overlay.open {
+      display: flex
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: var(--r2);
+      padding: 24px;
+      width: 520px;
+      max-width: 95vw;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 40px 80px rgba(0, 0, 0, .5)
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 20px
+    }
+
+    .form-group {
+      margin-bottom: 14px
+    }
+
+    .form-label {
+      font-size: 11px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: 6px;
+      display: block
+    }
+
+    .form-input,
+    .form-select,
+    .form-textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 13.5px;
+      color: var(--text);
+      font-family: var(--font);
+      outline: none;
+      transition: border-color .15s
+    }
+
+    .form-input:focus,
+    .form-select:focus,
+    .form-textarea:focus {
+      border-color: var(--accent)
+    }
+
+    .form-textarea {
+      resize: vertical;
+      min-height: 80px
+    }
+
+    .form-select option {
+      background: var(--surface2)
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 20px
+    }
+
+    .custom-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r2);
+      padding: 18px
+    }
+
+    .custom-section-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text2);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between
+    }
+
+    .custom-task {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border)
+    }
+
+    .custom-task:last-child {
+      border-bottom: none
+    }
+
+    .custom-task-del {
+      margin-left: auto;
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text3);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: all .15s;
+      flex-shrink: 0
+    }
+
+    .custom-task:hover .custom-task-del {
+      opacity: 1
+    }
+
+    .custom-task-del:hover {
+      background: rgba(239, 68, 68, .15);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, .3)
+    }
+
+    .empty-custom {
+      text-align: center;
+      padding: 24px;
+      color: var(--text3);
+      font-size: 13px
+    }
+
+    .prio-tag {
+      display: inline-flex;
+      align-items: center;
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 20px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-left: 6px
+    }
+
+    .prio-high {
+      background: rgba(239, 68, 68, .15);
+      color: #f87171
+    }
+
+    .prio-med {
+      background: rgba(245, 158, 11, .15);
+      color: #fbbf24
+    }
+
+    .prio-low {
+      background: rgba(34, 197, 94, .15);
+      color: #4ade80
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text3)
+    }
+
+    .empty-state h3 {
+      font-size: 16px;
+      color: var(--text2);
+      margin-bottom: 8px
+    }
+
+    .hidden {
+      display: none !important
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--surface3);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--text);
+      z-index: 200;
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all .25s;
+      pointer-events: none;
+      max-width: 320px;
+      line-height: 1.5
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--surface3);
+      border-radius: 10px
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--border2)
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    .spinning {
+      animation: spin 1s linear infinite
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="logo-mark">Learning Track</div>
+        <div class="logo-title">SDET Path</div>
+      </div>
+
+      <!-- ── Google Drive Sync Panel ── -->
+      <div class="sync-panel">
+        <button class="sync-btn" id="sync-btn" onclick="handleSyncClick()">
+          <div class="sync-icon" id="sync-icon">
+            <svg id="drive-logo" width="18" height="16" viewBox="0 0 87 78" fill="none">
+              <path d="M6 67L15 83C17 86 20 88 24 88H63C67 88 70 86 72 83L81 67H6Z" fill="#0066DA" />
+              <path d="M43 10L24 43L6 67H81L63 43L43 10Z" fill="#00AC47" />
+              <path d="M43 10L63 43H81L72 28L63 10H43Z" fill="#EA4335" />
+              <path d="M43 10L24 10L15 28L24 43L43 10Z" fill="#FFBA00" />
+            </svg>
+          </div>
+          <div class="sync-info">
+            <span id="sync-label">Connect Google Drive</span>
+            <span class="sync-sub" id="sync-sub">Sync progress across devices</span>
+          </div>
+        </button>
+        <div class="sync-actions" id="sync-actions" style="display:none">
+          <button class="sync-action-btn" onclick="saveToGDrive(true)">↑ Save</button>
+          <button class="sync-action-btn" onclick="loadFromGDrive(true)">↓ Load</button>
+          <button class="sync-action-btn" onclick="disconnectGDrive()">✕ Sign out</button>
+        </div>
+      </div>
+
+      <div class="sidebar-stats">
+        <div class="ss-row">
+          <div class="ss-item">
+            <div class="ss-val" id="sb-tasks">0</div>
+            <div class="ss-lbl">Done</div>
+          </div>
+          <div class="ss-item">
+            <div class="ss-val" id="sb-pct">0%</div>
+            <div class="ss-lbl">Total</div>
+          </div>
+          <div class="ss-item">
+            <div class="ss-val" id="sb-weeks">0/12</div>
+            <div class="ss-lbl">Weeks</div>
+          </div>
+        </div>
+        <div class="mini-bar">
+          <div class="mini-fill" id="mini-fill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <div class="streak-row">
+        <div class="streak-top">
+          <div class="streak-num" id="streak-num">0</div>
+          <div class="streak-lbl">tasks done today</div>
+        </div>
+        <div class="streak-dots" id="streak-dots"></div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-label">Views</div>
+        <div class="nav-item active" onclick="setView('all',this)">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity=".6" />
+            <rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity=".6" />
+            <rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".6" />
+            <rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".6" />
+          </svg>
+          All Weeks <span class="badge" id="nb-all">12</span>
+        </div>
+        <div class="nav-item" onclick="setView('todo',this)">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5" opacity=".6" />
+          </svg>
+          In Progress <span class="badge" id="nb-todo">-</span>
+        </div>
+        <div class="nav-item" onclick="setView('done',this)">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="6.5" fill="currentColor" opacity=".2" />
+            <polyline points="4.5,8.5 7,11 11.5,5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+          Completed <span class="badge" id="nb-done">0</span>
+        </div>
+        <div class="nav-item" onclick="setView('custom',this)">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            <line x1="8" y1="2" x2="8" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+          My Tasks <span class="badge" id="nb-custom">0</span>
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-label">Phase</div>
+        <div class="nav-item" onclick="setView('m1',this)"><span class="dot" style="background:var(--m1)"></span>Month 1
+          — JS + PW<span class="badge" id="nb-m1">4</span></div>
+        <div class="nav-item" onclick="setView('m2',this)"><span class="dot" style="background:var(--m2)"></span>Month 2
+          — SDET<span class="badge" id="nb-m2">4</span></div>
+        <div class="nav-item" onclick="setView('m3',this)"><span class="dot" style="background:var(--m3)"></span>Month 3
+          — AI Agent<span class="badge" id="nb-m3">4</span></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="header">
+        <div class="header-title"><span id="view-title">All Weeks</span><span class="header-sub"> · 12 week SDET
+            roadmap</span></div>
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="white">
+            <circle cx="7" cy="7" r="5" stroke="white" stroke-width="1.5" fill="none" />
+            <line x1="11" y1="11" x2="14.5" y2="14.5" stroke="white" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+          <input type="text" id="search" placeholder="Search tasks..." oninput="doSearch(this.value)">
+        </div>
+        <button class="btn btn-ghost" onclick="openModal()">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+            <line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <line x1="8" y1="2" x2="8" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          Add Task
+        </button>
+      </header>
+
+      <div class="content">
+        <div class="overview-cards" id="overview-cards">
+          <div class="ov-card" style="--accent-c:var(--m1)">
+            <div class="ov-num" id="ov-total">0</div>
+            <div class="ov-label">Tasks Done</div>
+            <div class="ov-sub" id="ov-total-sub">of 0 total</div>
+          </div>
+          <div class="ov-card" style="--accent-c:var(--green)">
+            <div class="ov-num" id="ov-weeks">0</div>
+            <div class="ov-label">Weeks Complete</div>
+            <div class="ov-sub">out of 12 weeks</div>
+          </div>
+          <div class="ov-card" style="--accent-c:var(--m2)">
+            <div class="ov-num" id="ov-hrs">~0h</div>
+            <div class="ov-label">Study Hours Done</div>
+            <div class="ov-sub">of ~90h total</div>
+          </div>
+          <div class="ov-card" style="--accent-c:var(--m3)">
+            <div class="ov-num" id="ov-pct">0%</div>
+            <div class="ov-label">Progress</div>
+            <div class="ov-sub" id="ov-pct-sub">keep going!</div>
+          </div>
+        </div>
+        <div class="filters" id="filters-row">
+          <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+          <button class="filter-btn" onclick="setFilter('pending',this)">Pending</button>
+          <button class="filter-btn" onclick="setFilter('completed',this)">Completed</button>
+          <div class="filter-sep"></div>
+          <button class="filter-btn" onclick="expandAll()">Expand All</button>
+          <button class="filter-btn" onclick="collapseAll()">Collapse All</button>
+        </div>
+        <div class="weeks-list" id="weeks-list"></div>
+        <div id="custom-view" class="hidden">
+          <div class="custom-section">
+            <div class="custom-section-title">My Tasks <button class="btn" onclick="openModal()"
+                style="font-size:12px;padding:5px 10px">+ Add Task</button></div>
+            <div id="custom-tasks-list"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <div class="modal-title">Add Custom Task</div>
+      <div class="form-group"><label class="form-label">Task Title *</label><input class="form-input" id="m-title"
+          placeholder="e.g. Practice Playwright for 2 hours"></div>
+      <div class="form-group"><label class="form-label">Description / Notes</label><textarea class="form-textarea"
+          id="m-desc" placeholder="Any details, links, or context..."></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Phase</label><select class="form-select" id="m-phase">
+            <option value="custom">Personal</option>
+            <option value="m1">Month 1</option>
+            <option value="m2">Month 2</option>
+            <option value="m3">Month 3</option>
+          </select></div>
+        <div class="form-group"><label class="form-label">Priority</label><select class="form-select" id="m-prio">
+            <option value="med">Medium</option>
+            <option value="high">High</option>
+            <option value="low">Low</option>
+          </select></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn" onclick="saveTask()">Add Task</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script>
+    // ══════════════════════════════════════════════
+    // PLAN DATA
+    // ══════════════════════════════════════════════
+    const PLAN = [
+      {
+        id: 'w1', phase: 'm1', title: 'JavaScript core syntax', hrs: 8, resources: ['freeCodeCamp JS', 'javascript.info'], days: [
+          { day: 'Day 1–2', topic: 'Variables & data types', tasks: ['var, let, const — differences and when to use each', 'Primitive types: string, number, boolean, null, undefined', 'Template literals: `Hello ${name}`', 'Practice: declare 10 variables of different types'] },
+          { day: 'Day 3–4', topic: 'Functions & control flow', tasks: ['Function declaration vs arrow functions', 'if/else, switch, ternary operator', 'for, while, for...of loops', 'Practice: write a function that loops an array and filters items'] },
+          { day: 'Day 5–6', topic: 'Arrays & objects', tasks: ['Array methods: map, filter, find, forEach, includes', 'Object creation, dot notation, destructuring', 'Spread operator: ...arr, ...obj', 'Practice: transform an array of user objects using map + filter'] },
+          { day: 'Day 7', topic: 'Week review + mini project', tasks: ['Build a small script: read a JSON list, filter, log results', 'Push code to a new GitHub repo — your portfolio starts here', 'Ask Claude to review your code and suggest improvements'] }
+        ]
+      },
+      {
+        id: 'w2', phase: 'm1', title: 'Async JS + Node.js setup', hrs: 7, resources: ['Node.js docs', 'javascript.info/async'], days: [
+          { day: 'Day 1–2', topic: 'Promises & async/await', tasks: ['What a Promise is — resolve, reject, .then, .catch', 'async function + await keyword — sequential async flow', 'try/catch for error handling in async code', 'Practice: fetch data from a public API using fetch()'] },
+          { day: 'Day 3–4', topic: 'Node.js & npm basics', tasks: ['Install Node.js LTS — verify with node -v and npm -v', 'npm init to create package.json in a project', 'npm install to add packages, node_modules explained', 'Create and run your first .js file with node index.js'] },
+          { day: 'Day 5–6', topic: 'Modules & file structure', tasks: ['import/export vs require/module.exports', 'Organise files: src/, tests/, utils/ structure', 'Read/write a JSON file using fs module', 'Practice: build a small helper module and import it'] },
+          { day: 'Day 7', topic: 'TypeScript intro', tasks: ['Install TypeScript: npm install -D typescript ts-node', 'Type annotations: string, number, boolean, any', 'Interfaces for objects: interface User { name: string }', 'Configure tsconfig.json basics — strict mode on'] }
+        ]
+      },
+      {
+        id: 'w3', phase: 'm1', title: 'Playwright setup & first tests', hrs: 8, resources: ['playwright.dev docs', 'saucedemo.com'], days: [
+          { day: 'Day 1', topic: 'Install & configure Playwright', tasks: ['npm init playwright@latest — choose TypeScript', 'Understand generated folder: tests/, playwright.config.ts', 'Run npx playwright test — see the demo test pass', 'Open npx playwright show-report to see HTML report'] },
+          { day: 'Day 2–3', topic: 'Playwright codegen', tasks: ['Run npx playwright codegen saucedemo.com', 'Record login flow — study the generated test code', 'Understand: page.goto(), page.fill(), page.click(), expect()', 'Edit the generated test to add an assertion'] },
+          { day: 'Day 4–5', topic: 'Test anatomy deep dive', tasks: ['test() block structure — test name, async function, page arg', 'expect() matchers: toBeVisible, toHaveText, toHaveURL', 'beforeEach hook for shared setup like login', 'Multiple assertions in one test — when to split tests'] },
+          { day: 'Day 6–7', topic: 'Write 5 manual tests as code', tasks: ['Test 1: Login with valid credentials', 'Test 2: Login with invalid credentials — assert error message', 'Test 3: Add item to cart — assert cart count', 'Test 4: Checkout flow — fill form and complete order', 'Test 5: Logout — assert redirect to login page'] }
+        ]
+      },
+      {
+        id: 'w4', phase: 'm1', title: 'Locators, assertions & debugging', hrs: 7, resources: ['playwright.dev/locators', 'Playwright VS Code extension'], days: [
+          { day: 'Day 1–2', topic: 'Locator strategies', tasks: ['getByRole() — the preferred, accessible approach', 'getByText(), getByLabel(), getByPlaceholder()', 'getByTestId() — for data-testid attributes', 'Avoid CSS/XPath unless absolutely necessary — understand why'] },
+          { day: 'Day 3', topic: 'Chaining & filtering locators', tasks: ['locator.filter({ hasText }) to narrow down elements', 'locator.nth(0) for indexed elements', 'locator.first() and locator.last()', 'page.locator("table").getByRole("row") — nesting locators'] },
+          { day: 'Day 4', topic: 'Assertions deep dive', tasks: ['Soft assertions: expect.soft() — run all, fail after', 'toBeEnabled, toBeDisabled, toBeChecked, toBeEmpty', 'toContainText vs toHaveText — exact vs partial match', 'Numeric: toHaveCount(), array assertions'] },
+          { day: 'Day 5–6', topic: 'Debugging tools', tasks: ['npx playwright test --debug — step through with Inspector', 'PWDEBUG=1 to pause on failure', 'page.screenshot() and page.video on failure', 'Console logs inside tests: console.log() still works'] },
+          { day: 'Day 7', topic: 'Refactor + cleanup', tasks: ['Refactor your 5 tests using correct locators', 'Add proper assertions to each test', 'Run all 5 tests together: npx playwright test', 'Fix any flaky tests — understand auto-wait behaviour'] }
+        ]
+      },
+      {
+        id: 'w5', phase: 'm2', title: 'Page Object Model (POM)', hrs: 8, resources: ['Playwright POM docs', 'Martin Fowler — PageObject pattern'], days: [
+          { day: 'Day 1–2', topic: 'What is POM and why', tasks: ['Problem: test logic mixed with UI selectors — brittle', 'POM: separate class per page — locators + actions inside', 'Single responsibility: page class owns UI, test owns the flow', 'Create LoginPage class with locators as properties'] },
+          { day: 'Day 3–4', topic: 'Build LoginPage & InventoryPage', tasks: ['class LoginPage { constructor(page) { this.page = page } }', 'Add methods: async login(user, pass), async getErrorMessage()', 'Create InventoryPage: addToCart(itemName), getCartCount()', 'Export classes and import in tests'] },
+          { day: 'Day 5', topic: 'CheckoutPage & CartPage', tasks: ['Build CartPage: getItems(), removeItem(name), proceedToCheckout()', 'Build CheckoutPage: fillForm(firstName, lastName, zip), completeOrder()', 'Chain pages in tests: login → inventory → cart → checkout', 'Verify full E2E flow using only page methods'] },
+          { day: 'Day 6–7', topic: 'Fixtures for shared pages', tasks: ['Playwright fixture: extend test with { loginPage, inventoryPage }', 'Auto-login fixture: log in before every test automatically', 'Understand fixture scope: test vs worker vs project', 'Refactor all 5 tests to use fixtures + POM — clean test files'] }
+        ]
+      },
+      {
+        id: 'w6', phase: 'm2', title: 'API testing with Playwright', hrs: 7, resources: ['playwright.dev/api-testing', 'reqres.in (mock API)'], days: [
+          { day: 'Day 1–2', topic: 'API request context basics', tasks: ['const request = await request.newContext()', 'GET request: await request.get(url) — check response.status()', 'POST request with JSON body: await request.post(url, { data:{} })', 'Parse JSON response: await response.json()'] },
+          { day: 'Day 3', topic: 'Assert API responses', tasks: ['expect(response.status()).toBe(200)', 'Validate response body fields: expect(body.id).toBeDefined()', 'Schema validation basics — check required fields exist', 'Negative tests: 401, 404, 400 — test bad inputs'] },
+          { day: 'Day 4–5', topic: 'Combine API + UI tests', tasks: ['Create a user via API, then verify in UI — no manual setup', 'Delete data via API in afterEach — clean test state', 'Use API to seed test data: POST 5 records, then test list view', 'This pattern = fast, reliable, not dependent on UI for setup'] },
+          { day: 'Day 6', topic: 'Network interception', tasks: ['page.route() to intercept and mock API responses', 'Return fake data: route.fulfill({ json: mockData })', 'Test error states: mock a 500 response — see how UI handles it', 'Mock slow responses: use route + delay to test loading states'] },
+          { day: 'Day 7', topic: 'API test suite', tasks: ['Write 5 pure API tests against a public API', 'Write 3 hybrid tests (API setup + UI verify)', 'Organise into tests/api/ folder', 'Run separately: npx playwright test tests/api/'] }
+        ]
+      },
+      {
+        id: 'w7', phase: 'm2', title: 'CI/CD with GitHub Actions', hrs: 6, resources: ['GitHub Actions docs', 'Playwright CI guide'], days: [
+          { day: 'Day 1–2', topic: 'Git & GitHub workflow', tasks: ['git init, git add, git commit -m, git push — review basics', 'Create a GitHub repo and push your Playwright project', 'Branching: git checkout -b feature/new-test', 'Pull request flow — even if working solo, practice this'] },
+          { day: 'Day 3–4', topic: 'GitHub Actions workflow', tasks: ['Create .github/workflows/playwright.yml', 'on: push to trigger tests on every commit', 'jobs: test with runs-on: ubuntu-latest', 'Steps: checkout → setup-node → npm ci → install → test'] },
+          { day: 'Day 5', topic: 'Artifacts & reports in CI', tasks: ['Upload HTML report as artifact on failure', 'Upload screenshots and videos on test failure', 'Set timeout for the whole job: timeout-minutes: 30', 'View test results in GitHub Actions tab'] },
+          { day: 'Day 6', topic: 'Environment & secrets', tasks: ['GitHub Secrets: Settings → Secrets → Actions', 'Access in workflow: env: USERNAME: ${{ secrets.TEST_USER }}', 'Use .env locally with dotenv — never commit credentials', 'Matrix strategy: run on chromium + firefox in parallel'] },
+          { day: 'Day 7', topic: 'Pipeline polish', tasks: ['Add status badge to README: shows pass/fail on GitHub', 'Run only @smoke tagged tests on every push — full suite nightly', 'Fix any failing tests in CI environment (headless differences)', 'Share your working CI pipeline — this is a portfolio milestone'] }
+        ]
+      },
+      {
+        id: 'w8', phase: 'm2', title: 'Fixtures, tags, reports & framework polish', hrs: 7, resources: ['Playwright test configuration docs', 'Allure Playwright'], days: [
+          { day: 'Day 1–2', topic: 'Advanced fixtures', tasks: ['Worker-scoped fixtures: shared across tests in a worker', 'Fixture dependency chain: loginPage depends on page', 'Override built-in fixtures: customise browser launch options', 'Auto fixture: runs without being declared in test args'] },
+          { day: 'Day 3', topic: 'Test tags & grouping', tasks: ['@smoke, @regression, @critical tags in test names', 'Run by tag: npx playwright test --grep @smoke', 'Skip tests: test.skip(), test.fixme() with reason', 'test.describe.only() for focused local runs'] },
+          { day: 'Day 4', topic: 'Data-driven testing', tasks: ['Parameterise tests with test.each() or a loop', 'Load test data from a JSON file: import users from ./data/users.json', 'Table-driven: test multiple form inputs from one data array', 'Generate data dynamically with a helper function'] },
+          { day: 'Day 5', topic: 'Custom HTML reports', tasks: ['playwright-html reporter — customise in playwright.config.ts', 'Add test annotations: test.info().annotations.push()', 'Allure reporter setup: npm install allure-playwright', 'Generate + open Allure: allure generate, allure open'] },
+          { day: 'Day 6–7', topic: 'Framework review & README', tasks: ['Final folder structure: tests/, pages/, fixtures/, data/, utils/', 'Write a clear README: setup instructions, how to run, tag guide', 'Add a test count badge — shows professionalism', 'Record a 2-min Loom demo of your framework running in CI'] }
+        ]
+      },
+      {
+        id: 'w9', phase: 'm3', title: 'AI-assisted test writing with Claude', hrs: 6, resources: ['Claude.ai', 'VS Code + Copilot (free tier)'], days: [
+          { day: 'Day 1–2', topic: 'Prompting Claude for test code', tasks: ['Prompt: Write a Playwright Page Object for saucedemo.com login page', 'Prompt: Generate 10 test cases for a checkout form', 'Learn to review AI output — spot bad locators, missing assertions', 'Iterate: The locator for the submit button is wrong, fix it'] },
+          { day: 'Day 3', topic: 'Generate POM from a URL', tasks: ['Paste page HTML or describe a page to Claude', 'Prompt: Create a TypeScript POM class for this page structure', 'Ask Claude to add JSDoc comments and TypeScript types', 'Compare AI-generated POM vs your manual one — merge the best parts'] },
+          { day: 'Day 4', topic: 'AI for test case design', tasks: ['Prompt: What are all edge cases to test for a login form?', 'Generate negative test scenarios from feature descriptions', 'Ask Claude: Convert this manual test case into Playwright code', 'Use AI to find gaps in your existing test coverage'] },
+          { day: 'Day 5', topic: 'AI-assisted debugging', tasks: ['Paste a failing test + error to Claude — ask for root cause', 'Prompt: Why is this Playwright locator flaky? Here is my code...', 'Ask for refactoring: Make this test more maintainable', 'Use Claude to explain Playwright error messages you do not understand'] },
+          { day: 'Day 6–7', topic: 'VS Code Copilot integration', tasks: ['Enable GitHub Copilot in VS Code (free for students or trial)', 'Inline suggestions while writing tests — Tab to accept', 'Copilot Chat: Ctrl+I to explain or fix selected code', 'Compare Copilot vs Claude for test generation — know when to use each'] }
+        ]
+      },
+      {
+        id: 'w10', phase: 'm3', title: 'Claude API for dynamic test data', hrs: 7, resources: ['Anthropic API docs', 'anthropic npm package'], days: [
+          { day: 'Day 1–2', topic: 'Anthropic SDK setup', tasks: ['npm install @anthropic-ai/sdk', 'Get API key from console.anthropic.com', 'Create utils/aiHelper.ts with basic message call', 'Test: ask Claude to return hello — verify SDK works'] },
+          { day: 'Day 3', topic: 'Generate test data with AI', tasks: ['Prompt Claude to return JSON: Return 5 fake user objects with name, email, age', 'Parse response and use as Playwright test data', 'Generate invalid data for negative tests: Give me 5 invalid email formats', 'Store generated data as fixtures for reuse'] },
+          { day: 'Day 4', topic: 'AI test data helper module', tasks: ['Build generateUsers(count) function that calls Claude API', 'Build generateFormData(type) — returns valid/invalid based on type param', 'Add retry logic if API call fails: try/catch with fallback static data', 'Cache results to avoid repeated API calls in the same run'] },
+          { day: 'Day 5', topic: 'AI log analyser', tasks: ['After test run, read the JSON results file', 'Send failures to Claude: Summarise these test failures in plain English', 'Output a summary report — email-ready test run digest', 'This is a real SDET productivity tool — demo-worthy'] },
+          { day: 'Day 6–7', topic: 'Integrate into your framework', tasks: ['Add AI data generator as a fixture: aiDataFixture', 'Use in 3 tests: one happy path, two negative', 'Run the full suite with AI-generated data', 'Write a README section explaining the AI data generation feature'] }
+        ]
+      },
+      {
+        id: 'w11', phase: 'm3', title: 'Playwright MCP + AI agent basics', hrs: 7, resources: ['@playwright/mcp npm', 'Claude Desktop app'], days: [
+          { day: 'Day 1–2', topic: 'What is MCP and why it matters', tasks: ['MCP = Model Context Protocol — lets AI agents use tools', 'Playwright MCP exposes browser as a tool Claude can call', 'Install: npm install @playwright/mcp', 'Understand: AI agent = LLM + tool calling + loop (plan→act→observe)'] },
+          { day: 'Day 3', topic: 'Set up Claude Desktop + Playwright MCP', tasks: ['Install Claude Desktop app', 'Edit claude_desktop_config.json to add Playwright MCP server', 'Verify: open Claude Desktop — MCP tools should appear', 'Test: type go to saucedemo.com — Claude controls the browser'] },
+          { day: 'Day 4', topic: 'First AI-driven test scenario', tasks: ['Prompt Claude: Navigate to saucedemo.com, log in, add item to cart, verify cart count', 'Watch Claude execute step by step — observe tool calls', 'Claude takes screenshots automatically — review them', 'Identify what it got right vs wrong — this builds agent intuition'] },
+          { day: 'Day 5', topic: 'Agent prompt engineering for testing', tasks: ['Structured prompt: Act as a QA engineer. Test the login feature with valid, invalid, and empty inputs.', 'Ask Claude to generate a bug report from what it observed', 'Prompt: Explore the checkout flow and list any UI issues', 'AI agents work better with clear goals, not step-by-step instructions'] },
+          { day: 'Day 6–7', topic: 'Plan→Act→Reflect agent loop', tasks: ['Build a simple JS script that calls Claude API with a test goal', 'Claude responds with actions, you execute via Playwright, feed back result', 'This is the foundation of autonomous testing agents', 'Document your agent experiment — it will impress interviewers'] }
+        ]
+      },
+      {
+        id: 'w12', phase: 'm3', title: 'Portfolio project + job prep', hrs: 8, resources: ['LinkedIn', 'GitHub portfolio guide'], days: [
+          { day: 'Day 1–2', topic: 'Polish the full framework', tasks: ['Final structure: POM + fixtures + API tests + CI + AI data gen + MCP demo', 'Ensure all tests pass in CI on GitHub Actions', 'Add proper error messages to every assertion', 'TypeScript strict mode — fix any type errors'] },
+          { day: 'Day 3', topic: 'README & documentation', tasks: ['Project overview: what it tests, tech stack, architecture diagram', 'Setup guide: prerequisites, npm install, env setup, how to run', 'Test strategy: what each folder contains, how to add new tests', 'Add a demo GIF or Loom video link — shows it actually works'] },
+          { day: 'Day 4', topic: 'LinkedIn & GitHub presence', tasks: ['Pin your Playwright repo on GitHub profile', 'Write a LinkedIn post about your AI-powered test framework journey', 'Update your LinkedIn headline: QA Engineer | Automation | Playwright | AI Testing', 'Connect with SDET professionals — comment on their posts first'] },
+          { day: 'Day 5–6', topic: 'Interview prep — technical', tasks: ['Why Playwright over Selenium? (auto-wait, no WebDriver, multi-browser)', 'Explain POM pattern with a code example', 'How do you handle flaky tests? (retry, soft assert, wait strategy)', 'What is a fixture in Playwright? How is it different from beforeEach?', 'Describe how you integrated AI into your testing workflow'] },
+          { day: 'Day 7', topic: 'Interview prep — take-home tasks', tasks: ['Practice task: given a URL, build a POM + 5 tests in 2 hours', 'Practice explaining your code line by line — interviewers watch this', 'Prepare a 5-min demo of your framework running', 'Know your numbers: X tests, Y% coverage, Z mins CI runtime'] }
+        ]
+      }
+    ];
+
+    // ══════════════════════════════════════════════
+    // STATE
+    // ══════════════════════════════════════════════
+    let taskState = {}, weekState = {}, notes = {}, customTasks = [];
+    let currentView = 'all', currentFilter = 'all', searchQuery = '';
+    let openNoteId = null, todayDone = 0;
+    let gToken = null, gFileId = null, autoSaveTimer = null;
+    const LS = 'sdet_v4';
+
+    function loadLocal() {
+      try {
+        const s = JSON.parse(localStorage.getItem(LS) || '{}');
+        taskState = s.taskState || {}; weekState = s.weekState || {};
+        notes = s.notes || {}; customTasks = s.customTasks || [];
+        todayDone = s.todayDone || 0; gFileId = s.gFileId || null;
+        if (s.lastDate !== new Date().toDateString()) todayDone = 0;
+      } catch (e) { }
+    }
+    function saveLocal() {
+      localStorage.setItem(LS, JSON.stringify({ taskState, weekState, notes, customTasks, todayDone, gFileId, lastDate: new Date().toDateString() }));
+    }
+    function getSnapshot() { return { taskState, weekState, notes, customTasks, todayDone, savedAt: new Date().toISOString() }; }
+    function applySnapshot(d) { if (!d) return; taskState = d.taskState || {}; weekState = d.weekState || {}; notes = d.notes || {}; customTasks = d.customTasks || []; todayDone = d.todayDone || 0; }
+
+    // ══════════════════════════════════════════════
+    // GOOGLE DRIVE
+    // ══════════════════════════════════════════════
+    function handleSyncClick() {
+      if (GOOGLE_CLIENT_ID === 'YOUR_CLIENT_ID_HERE') {
+        showToast('⚠️ Open this file in a text editor and replace YOUR_CLIENT_ID_HERE with your Google OAuth Client ID (see setup instructions at top of file).');
+        return;
+      }
+      if (gToken) { saveToGDrive(true); } else { signIn(); }
+    }
+
+    function signIn() {
+      setSyncUI('syncing', 'Connecting…', 'Opening Google sign-in…');
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID, scope: SCOPES,
+        callback: async (r) => {
+          if (r.error) { setSyncUI('idle', 'Connect Google Drive', 'Sign-in failed — try again'); showToast('Sign-in failed: ' + r.error); return; }
+          gToken = r.access_token;
+          document.getElementById('sync-actions').style.display = 'flex';
+          setSyncUI('connected', 'Google Drive', 'Loading your saved progress…');
+          await loadFromGDrive(false);
+        }
+      });
+      client.requestAccessToken();
+    }
+
+    function disconnectGDrive() {
+      gToken = null;
+      document.getElementById('sync-actions').style.display = 'none';
+      setSyncUI('idle', 'Connect Google Drive', 'Sync progress across devices');
+      showToast('Disconnected from Google Drive');
+    }
+
+    function setSyncUI(state, label, sub) {
+      const btn = document.getElementById('sync-btn');
+      btn.className = 'sync-btn' + (state === 'connected' ? ' connected' : state === 'syncing' ? ' syncing' : '');
+      document.getElementById('sync-label').textContent = label;
+      document.getElementById('sync-sub').textContent = sub;
+      const svg = document.getElementById('drive-logo');
+      state === 'syncing' ? svg.classList.add('spinning') : svg.classList.remove('spinning');
+    }
+
+    async function findFile() {
+      const r = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${DRIVE_FILE_NAME}'&fields=files(id)`, { headers: { Authorization: 'Bearer ' + gToken } });
+      const d = await r.json(); return d.files?.[0] || null;
+    }
+
+    async function loadFromGDrive(showMsg) {
+      if (!gToken) return;
+      setSyncUI('syncing', 'Google Drive', 'Loading…');
+      try {
+        let file = null;
+        if (gFileId) {
+          const r = await fetch(`https://www.googleapis.com/drive/v3/files/${gFileId}?spaces=appDataFolder&fields=id`, { headers: { Authorization: 'Bearer ' + gToken } });
+          if (r.ok) file = { id: gFileId }; else gFileId = null;
+        }
+        if (!file) file = await findFile();
+        if (file) {
+          gFileId = file.id; saveLocal();
+          const r = await fetch(`https://www.googleapis.com/drive/v3/files/${gFileId}?alt=media`, { headers: { Authorization: 'Bearer ' + gToken } });
+          applySnapshot(await r.json());
+          saveLocal(); renderAll();
+          const t = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          setSyncUI('connected', 'Google Drive synced', 'Loaded at ' + t);
+          if (showMsg) showToast('✓ Progress loaded from Google Drive');
+        } else {
+          setSyncUI('connected', 'Google Drive connected', 'No save found — saving now…');
+          await saveToGDrive(false);
+          if (showMsg) showToast('✓ Connected! Progress saved to Drive.');
+        }
+      } catch (e) { setSyncUI('connected', 'Google Drive connected', 'Error — try again'); if (showMsg) showToast('Drive error: ' + e.message); }
+    }
+
+    async function saveToGDrive(showMsg) {
+      if (!gToken) return;
+      setSyncUI('syncing', 'Google Drive', 'Saving…');
+      try {
+        const body = JSON.stringify(getSnapshot());
+        if (gFileId) {
+          await fetch(`https://www.googleapis.com/upload/drive/v3/files/${gFileId}?uploadType=media`, { method: 'PATCH', headers: { Authorization: 'Bearer ' + gToken, 'Content-Type': 'application/json' }, body });
+        } else {
+          const meta = { name: DRIVE_FILE_NAME, parents: ['appDataFolder'] };
+          const form = new FormData();
+          form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
+          form.append('file', new Blob([body], { type: 'application/json' }));
+          const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { Authorization: 'Bearer ' + gToken }, body: form });
+          const f = await r.json(); gFileId = f.id; saveLocal();
+        }
+        const t = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        setSyncUI('connected', 'Google Drive synced', 'Saved at ' + t);
+        if (showMsg) showToast('✓ Progress saved to Google Drive');
+      } catch (e) { setSyncUI('connected', 'Google Drive connected', 'Save failed'); if (showMsg) showToast('Save error: ' + e.message); }
+    }
+
+    function scheduleAutoSave() { clearTimeout(autoSaveTimer); autoSaveTimer = setTimeout(() => { if (gToken) saveToGDrive(false); }, 3000); }
+
+    // ══════════════════════════════════════════════
+    // STATS
+    // ══════════════════════════════════════════════
+    function counts() { let tot = 0, dn = 0; PLAN.forEach(w => w.days.forEach((d, di) => d.tasks.forEach((t, ti) => { tot++; if (taskState[`${w.id}-${di}-${ti}`]) dn++; }))); return { tot, dn }; }
+    function wPct(w) { let t = 0, d = 0; w.days.forEach((day, di) => day.tasks.forEach((tk, ti) => { t++; if (taskState[`${w.id}-${di}-${ti}`]) d++; })); return t ? Math.round(d / t * 100) : 0; }
+    function wDone(w) { let d = 0; w.days.forEach((day, di) => day.tasks.forEach((tk, ti) => { if (taskState[`${w.id}-${di}-${ti}`]) d++; })); return d; }
+    function wTot(w) { return w.days.reduce((s, d) => s + d.tasks.length, 0); }
+
+    function updateStats() {
+      const { tot, dn } = counts(); const wks = PLAN.filter(w => weekState[w.id]).length; const pct = tot ? Math.round(dn / tot * 100) : 0;
+      document.getElementById('sb-tasks').textContent = dn;
+      document.getElementById('sb-pct').textContent = pct + '%';
+      document.getElementById('sb-weeks').textContent = wks + '/12';
+      document.getElementById('mini-fill').style.width = pct + '%';
+      document.getElementById('ov-total').textContent = dn;
+      document.getElementById('ov-total-sub').textContent = 'of ' + tot + ' total';
+      document.getElementById('ov-weeks').textContent = wks;
+      document.getElementById('ov-pct').textContent = pct + '%';
+      document.getElementById('ov-pct-sub').textContent = pct >= 100 ? 'Complete! 🎉' : pct > 50 ? 'More than halfway!' : 'keep going!';
+      const hrs = Math.round(PLAN.filter(w => weekState[w.id]).reduce((s, w) => s + w.hrs, 0));
+      document.getElementById('ov-hrs').textContent = '~' + hrs + 'h';
+      ['m1', 'm2', 'm3'].forEach(p => { document.getElementById('nb-' + p).textContent = PLAN.filter(w => w.phase === p && weekState[w.id]).length + '/4'; });
+      document.getElementById('nb-all').textContent = 12;
+      document.getElementById('nb-todo').textContent = 12 - wks;
+      document.getElementById('nb-done').textContent = wks;
+      document.getElementById('nb-custom').textContent = customTasks.length;
+      document.getElementById('streak-num').textContent = todayDone;
+      const dots = document.getElementById('streak-dots'); dots.innerHTML = '';
+      for (let i = 0; i < 7; i++) { const d = document.createElement('div'); d.className = 's-dot' + (i < todayDone ? ' lit' : ''); dots.appendChild(d); }
+    }
+
+    // ══════════════════════════════════════════════
+    // RENDER
+    // ══════════════════════════════════════════════
+    function renderAll() { updateStats(); renderWeeks(); renderCustom(); }
+
+    const phB = p => p === 'm1' ? 'ph-m1' : p === 'm2' ? 'ph-m2' : 'ph-m3';
+    const phF = p => p === 'm1' ? 'm1-fill' : p === 'm2' ? 'm2-fill' : 'm3-fill';
+    const phL = p => p === 'm1' ? 'Month 1' : p === 'm2' ? 'Month 2' : 'Month 3';
+
+    function renderWeeks() {
+      const list = document.getElementById('weeks-list');
+      const cv = document.getElementById('custom-view');
+      const ov = document.getElementById('overview-cards');
+      const fr = document.getElementById('filters-row');
+      if (currentView === 'custom') { list.style.display = 'none'; cv.classList.remove('hidden'); ov.style.display = 'none'; fr.style.display = 'none'; renderCustom(); return; }
+      list.style.display = ''; cv.classList.add('hidden'); ov.style.display = ''; fr.style.display = '';
+      const show = PLAN.filter(w => {
+        if (currentView === 'm1' || currentView === 'm2' || currentView === 'm3') return w.phase === currentView;
+        if (currentView === 'todo') return !weekState[w.id];
+        if (currentView === 'done') return !!weekState[w.id];
+        return true;
+      });
+      list.innerHTML = '';
+      show.forEach((w, _) => {
+        const days = w.days.map((d, di) => ({
+          ...d, _di: di, tasks: d.tasks.filter((t, ti) => {
+            const done = !!taskState[`${w.id}-${di}-${ti}`];
+            if (currentFilter === 'pending' && done) return false;
+            if (currentFilter === 'completed' && !done) return false;
+            if (searchQuery && !t.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+            return true;
+          })
+        })).filter(d => d.tasks.length > 0);
+        const useAll = currentFilter === 'all' && !searchQuery;
+        const daysToRender = useAll ? w.days.map((d, di) => ({ ...d, _di: di })) : days;
+        if (!daysToRender.length) return;
+        const pct = wPct(w); const done = wDone(w); const tot = wTot(w);
+        const wn = PLAN.indexOf(w) + 1;
+        const card = document.createElement('div');
+        card.className = 'week-card'; card.id = 'card-' + w.id;
+        card.innerHTML = `
+      <div class="week-header" onclick="toggleCard('${w.id}')">
+        <span class="week-phase-badge ${phB(w.phase)}">${phL(w.phase)} · Wk ${wn}</span>
+        <div><div class="week-title">${w.title}</div><div class="week-meta">~${w.hrs}h &nbsp;·&nbsp; ${done}/${tot} tasks</div></div>
+        <div class="week-progress"><div class="week-prog-bar"><div class="week-prog-fill ${phF(w.phase)}" style="width:${pct}%"></div></div><span class="week-pct">${pct}%</span></div>
+        <div class="week-check${weekState[w.id] ? ' done' : ''}" id="wc-${w.id}" onclick="event.stopPropagation();toggleWeekDone('${w.id}')"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="week-body" id="body-${w.id}">
+        ${daysToRender.map(d => buildDay(w, d)).join('')}
+        <div class="resources-row"><span class="res-label">Resources:</span>${w.resources.map(r => `<span class="res-tag">${r}</span>`).join('')}</div>
+      </div>`;
+        list.appendChild(card);
+      });
+      if (!list.children.length) list.innerHTML = '<div class="empty-state"><h3>Nothing here</h3><p>Try a different filter.</p></div>';
+    }
+
+    function buildDay(w, day) {
+      const di = day._di !== undefined ? day._di : w.days.indexOf(day);
+      const dn = day.tasks.filter(t => { const ti = w.days[di].tasks.indexOf(t); return taskState[`${w.id}-${di}-${ti}`]; }).length;
+      const rows = day.tasks.map(t => {
+        const ti = w.days[di].tasks.indexOf(t); const tid = `${w.id}-${di}-${ti}`;
+        const isDone = !!taskState[tid]; const hNote = !!notes[tid];
+        return `<div class="task-item${isDone ? ' done' : ''}" id="task-${tid}">
+      <div class="task-cb${isDone ? ' done' : ''}" onclick="toggleTask('${tid}')"><svg width="9" height="9" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="task-text">${t}</div>
+      <button class="task-note-btn${hNote ? ' has-note' : ''}" onclick="toggleNote('${tid}')" title="Note"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><line x1="5" y1="6" x2="11" y2="6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="5" y1="9" x2="9" y2="9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="note-panel${openNoteId === tid ? ' open' : ''}" id="note-${tid}">
+      <textarea placeholder="Add notes, links, learnings...">${notes[tid] || ''}</textarea>
+      <div class="note-actions"><button class="note-close" onclick="closeNote('${tid}')">Close</button><button class="note-save" onclick="saveNote('${tid}')">Save</button></div>
+    </div>`;
+      }).join('');
+      return `<div class="day-section"><div class="day-header"><span class="day-label">${day.day}</span><span class="day-topic">${day.topic}</span><span class="day-count">${dn}/${day.tasks.length}</span></div><div class="task-list">${rows}</div></div>`;
+    }
+
+    // ══════════════════════════════════════════════
+    // ACTIONS
+    // ══════════════════════════════════════════════
+    function toggleCard(id) { const b = document.getElementById('body-' + id); const c = document.getElementById('card-' + id); if (!b) return; b.classList.toggle('open'); c.classList.toggle('expanded', b.classList.contains('open')); }
+    function expandAll() { PLAN.forEach(w => { document.getElementById('body-' + w.id)?.classList.add('open'); document.getElementById('card-' + w.id)?.classList.add('expanded'); }); }
+    function collapseAll() { PLAN.forEach(w => { document.getElementById('body-' + w.id)?.classList.remove('open'); document.getElementById('card-' + w.id)?.classList.remove('expanded'); }); }
+
+    function toggleWeekDone(id) {
+      weekState[id] = !weekState[id]; saveLocal(); scheduleAutoSave();
+      showToast(weekState[id] ? '✓ Week marked complete!' : 'Week unmarked'); renderAll();
+    }
+
+    function toggleTask(tid) {
+      taskState[tid] = !taskState[tid];
+      if (taskState[tid]) todayDone++; else if (todayDone > 0) todayDone--;
+      saveLocal(); scheduleAutoSave();
+      const el = document.getElementById('task-' + tid);
+      el?.classList.toggle('done', !!taskState[tid]);
+      el?.querySelector('.task-cb')?.classList.toggle('done', !!taskState[tid]);
+      updateStats();
+      const w = PLAN.find(x => x.id === tid.split('-')[0]);
+      if (w) {
+        const pct = wPct(w); const done = wDone(w); const tot = wTot(w);
+        document.querySelector(`#card-${w.id} .week-prog-fill`)?.style.setProperty('width', pct + '%');
+        const pe = document.querySelector(`#card-${w.id} .week-pct`); if (pe) pe.textContent = pct + '%';
+        const me = document.querySelector(`#card-${w.id} .week-meta`); if (me) me.textContent = `~${w.hrs}h · ${done}/${tot} tasks`;
+      }
+    }
+
+    function toggleNote(tid) {
+      if (openNoteId === tid) { openNoteId = null; document.getElementById('note-' + tid)?.classList.remove('open'); }
+      else { if (openNoteId) document.getElementById('note-' + openNoteId)?.classList.remove('open'); openNoteId = tid; document.getElementById('note-' + tid)?.classList.add('open'); document.querySelector(`#note-${tid} textarea`)?.focus(); }
+    }
+    function saveNote(tid) {
+      const ta = document.querySelector(`#note-${tid} textarea`); if (!ta) return;
+      const v = ta.value.trim();
+      if (v) { notes[tid] = v; document.querySelector(`#task-${tid} .task-note-btn`)?.classList.add('has-note'); }
+      else { delete notes[tid]; document.querySelector(`#task-${tid} .task-note-btn`)?.classList.remove('has-note'); }
+      saveLocal(); scheduleAutoSave(); showToast('Note saved'); openNoteId = null; document.getElementById('note-' + tid)?.classList.remove('open');
+    }
+    function closeNote(tid) { openNoteId = null; document.getElementById('note-' + tid)?.classList.remove('open'); }
+
+    const VT = { all: 'All Weeks', m1: 'Month 1 — JS + Playwright', m2: 'Month 2 — SDET Skills', m3: 'Month 3 — AI Agent', todo: 'In Progress', done: 'Completed Weeks', custom: 'My Tasks' };
+    function setView(v, btn) { currentView = v; document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active')); btn.classList.add('active'); document.getElementById('view-title').textContent = VT[v] || v; renderWeeks(); }
+    function setFilter(f, btn) { currentFilter = f; document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); renderWeeks(); }
+    function doSearch(q) { searchQuery = q; renderWeeks(); }
+
+    function renderCustom() {
+      const el = document.getElementById('custom-tasks-list');
+      document.getElementById('nb-custom').textContent = customTasks.length;
+      if (!customTasks.length) { el.innerHTML = '<div class="empty-custom">No custom tasks yet. Add your own goals and to-dos.</div>'; return; }
+      el.innerHTML = customTasks.map((t, i) => `
+    <div class="custom-task">
+      <div class="task-cb${t.done ? ' done' : ''}" onclick="toggleCustom(${i})"><svg width="9" height="9" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div><div class="task-text" style="text-decoration:${t.done ? 'line-through' : 'none'};color:${t.done ? 'var(--text3)' : 'var(--text2)'}">${t.title}<span class="prio-tag prio-${t.priority}">${t.priority}</span></div>${t.desc ? `<div style="font-size:12px;color:var(--text3);margin-top:3px">${t.desc}</div>` : ''}</div>
+      <button class="custom-task-del" onclick="deleteCustom(${i})"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><line x1="3" y1="3" x2="13" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="13" y1="3" x2="3" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    </div>`).join('');
+    }
+    function toggleCustom(i) { customTasks[i].done = !customTasks[i].done; saveLocal(); scheduleAutoSave(); renderCustom(); updateStats(); }
+    function deleteCustom(i) { customTasks.splice(i, 1); saveLocal(); scheduleAutoSave(); renderCustom(); updateStats(); showToast('Task deleted'); }
+
+    function openModal() { document.getElementById('modal').classList.add('open'); document.getElementById('m-title').focus(); }
+    function closeModal() { document.getElementById('modal').classList.remove('open'); document.getElementById('m-title').value = ''; document.getElementById('m-desc').value = ''; }
+    function saveTask() {
+      const title = document.getElementById('m-title').value.trim();
+      if (!title) { showToast('Please enter a task title'); return; }
+      customTasks.push({ title, desc: document.getElementById('m-desc').value.trim(), phase: document.getElementById('m-phase').value, priority: document.getElementById('m-prio').value, done: false, created: Date.now() });
+      saveLocal(); scheduleAutoSave(); closeModal(); renderCustom(); updateStats(); showToast('Task added!');
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); if (e.key === 'Enter' && document.getElementById('modal').classList.contains('open') && document.activeElement.tagName !== 'TEXTAREA') saveTask(); });
+    document.getElementById('modal').addEventListener('click', e => { if (e.target === document.getElementById('modal')) closeModal(); });
+
+    let toastT;
+    function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2800); }
+
+    // ── Init ──
+    loadLocal(); renderAll();
+    setTimeout(() => { ['w1', 'w2'].forEach(id => { document.getElementById('body-' + id)?.classList.add('open'); document.getElementById('card-' + id)?.classList.add('expanded'); }); }, 50);
+  </script>
+</body>
+
+</html>
